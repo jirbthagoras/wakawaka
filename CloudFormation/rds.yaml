@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: PostgreSQL RDS for Order Management System
+
+Parameters:
+  PrivateSubnet1:
+    Type: String
+    Description: First private subnet ID
+  PrivateSubnet2:
+    Type: String
+    Description: Second private subnet ID
+  RDSSecurityGroup:
+    Type: String
+    Description: Security Group ID for RDS (lks-sg-rds)
+
+Resources:
+
+  OrdersDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private subnet group for Orders RDS
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  OrdersRDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: lks-rds-orders
+      Engine: postgres
+      DBInstanceClass: db.t3.micro
+
+      AllocatedStorage: 20
+      StorageType: gp3
+
+      DBName: ordersdb
+      MasterUsername: dbadmin
+      MasterUserPassword: TechnoCloud2026!
+
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      DBSubnetGroupName: !Ref OrdersDBSubnetGroup
+
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+
+      MultiAZ: false
+      DeletionProtection: false
+
+Outputs:
+  RDSInstanceEndpoint:
+    Description: RDS Endpoint
+    Value: !GetAtt OrdersRDSInstance.Endpoint.Address
+
+  RDSInstanceIdentifier:
+    Description: RDS Identifier
+    Value: !Ref OrdersRDSInstance

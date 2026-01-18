@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LKS - Serverless Order Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .stats-card {
+            transition: transform 0.2s;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body class="bg-base-200">
+    <!-- Navbar -->
+    <div class="navbar bg-base-100 shadow-lg">
+        <div class="flex-1">
+            <a class="btn btn-ghost text-xl">
+                <i class="fas fa-cloud mr-2"></i>
+                LKS Order Management
+            </a>
+        </div>
+        <div class="flex-none">
+            <div class="dropdown dropdown-end">
+                <label tabindex="0" class="btn btn-ghost btn-circle">
+                    <i class="fas fa-cog"></i>
+                </label>
+                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+                    <li><a onclick="showSettings()"><i class="fas fa-sliders-h mr-2"></i>Settings</a></li>
+                    <li><a onclick="refreshData()"><i class="fas fa-sync mr-2"></i>Refresh</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4">
+        <!-- Tabs -->
+        <div class="tabs tabs-boxed mb-4">
+            <a class="tab tab-active" onclick="showTab('dashboard')">
+                <i class="fas fa-chart-line mr-2"></i>Dashboard
+            </a>
+            <a class="tab" onclick="showTab('orders')">
+                <i class="fas fa-shopping-cart mr-2"></i>Orders
+            </a>
+            <a class="tab" onclick="showTab('create')">
+                <i class="fas fa-plus-circle mr-2"></i>Create Order
+            </a>
+            <a class="tab" onclick="showTab('reports')">
+                <i class="fas fa-file-alt mr-2"></i>Reports
+            </a>
+            <a class="tab" onclick="showTab('monitor')">
+                <i class="fas fa-desktop mr-2"></i>Monitor
+            </a>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="tab-content">
+            <h2 class="text-2xl font-bold mb-4">Dashboard Overview</h2>
+            
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="card bg-base-100 shadow-xl stats-card">
+                    <div class="card-body">
+                        <div class="stat">
+                            <div class="stat-figure text-primary">
+                                <i class="fas fa-shopping-bag text-3xl"></i>
+                            </div>
+                            <div class="stat-title">Total Orders</div>
+                            <div class="stat-value text-primary" id="total-orders">0</div>
+                            <div class="stat-desc">All time orders</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-xl stats-card">
+                    <div class="card-body">
+                        <div class="stat">
+                            <div class="stat-figure text-success">
+                                <i class="fas fa-dollar-sign text-3xl"></i>
+                            </div>
+                            <div class="stat-title">Total Revenue</div>
+                            <div class="stat-value text-success" id="total-revenue">$0</div>
+                            <div class="stat-desc">Total earnings</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-xl stats-card">
+                    <div class="card-body">
+                        <div class="stat">
+                            <div class="stat-figure text-warning">
+                                <i class="fas fa-clock text-3xl"></i>
+                            </div>
+                            <div class="stat-title">Pending Orders</div>
+                            <div class="stat-value text-warning" id="pending-orders">0</div>
+                            <div class="stat-desc">Awaiting processing</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-xl stats-card">
+                    <div class="card-body">
+                        <div class="stat">
+                            <div class="stat-figure text-info">
+                                <i class="fas fa-check-circle text-3xl"></i>
+                            </div>
+                            <div class="stat-title">Completed</div>
+                            <div class="stat-value text-info" id="completed-orders">0</div>
+                            <div class="stat-desc">Successfully processed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Orders -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="card-title">Recent Orders</h3>
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-orders-table">
+                                <tr>
+                                    <td colspan="5" class="text-center">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Tab -->
+        <div id="orders-tab" class="tab-content hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Orders Management</h2>
+                <button class="btn btn-primary" onclick="loadOrders()">
+                    <i class="fas fa-sync mr-2"></i>Refresh
+                </button>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Email</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Amount</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-table">
+                                <tr>
+                                    <td colspan="7" class="text-center">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="flex justify-center mt-4">
+                        <div class="join" id="pagination">
+                            <button class="join-item btn" onclick="changePage(-1)">«</button>
+                            <button class="join-item btn">Page <span id="current-page">1</span></button>
+                            <button class="join-item btn" onclick="changePage(1)">»</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Order Tab -->
+        <div id="create-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">Create New Order</h2>
+            
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <form id="create-order-form" onsubmit="createOrder(event)">
+                        <div class="form-control mb-4">
+                            <label class="label">
+                                <span class="label-text">Customer</span>
+                            </label>
+                            <select class="select select-bordered" id="customer-select" required>
+                                <option value="">Select Customer</option>
+                            </select>
+                        </div>
+
+                        <div class="divider">Order Items</div>
+
+                        <div id="order-items">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 order-item">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Product</span>
+                                    </label>
+                                    <select class="select select-bordered product-select" required>
+                                        <option value="">Select Product</option>
+                                    </select>
+                                </div>
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Quantity</span>
+                                    </label>
+                                    <input type="number" class="input input-bordered quantity-input" min="1" value="1" required>
+                                </div>
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Price</span>
+                                    </label>
+                                    <input type="text" class="input input-bordered price-display" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-outline btn-sm mb-4" onclick="addOrderItem()">
+                            <i class="fas fa-plus mr-2"></i>Add Item
+                        </button>
+
+                        <div class="divider">Order Summary</div>
+
+                        <div class="alert alert-info mb-4">
+                            <i class="fas fa-info-circle"></i>
+                            <div>
+                                <div class="text-lg font-bold">Total Amount: $<span id="order-total">0.00</span></div>
+                            </div>
+                        </div>
+
+                        <div class="card-actions justify-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check mr-2"></i>Create Order
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reports-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">Reports</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h3 class="card-title">Daily Reports</h3>
+                        <p>View and download daily order reports</p>
+                        <div class="card-actions justify-end">
+                            <button class="btn btn-primary" onclick="generateReport('daily')">
+                                <i class="fas fa-download mr-2"></i>Generate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h3 class="card-title">Inventory Report</h3>
+                        <p>Current inventory status and stock levels</p>
+                        <div class="card-actions justify-end">
+                            <button class="btn btn-primary" onclick="generateReport('inventory')">
+                                <i class="fas fa-download mr-2"></i>Generate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl mt-4">
+                <div class="card-body">
+                    <h3 class="card-title">Recent Reports</h3>
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Report Name</th>
+                                    <th>Generated Date</th>
+                                    <th>Type</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reports-list">
+                                <tr>
+                                    <td colspan="4" class="text-center">No reports available</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitor Tab -->
+        <div id="monitor-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">System Monitoring</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <div class="stat">
+                            <div class="stat-figure text-success">
+                                <i class="fas fa-server text-3xl"></i>
+                            </div>
+                            <div class="stat-title">System Status</div>
+                            <div class="stat-value text-sm text-success">Operational</div>
+                            <div class="stat-desc">All services running</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <div class="stat">
+                            <div class="stat-figure text-info">
+                                <i class="fas fa-bolt text-3xl"></i>
+                            </div>
+                            <div class="stat-title">API Response</div>
+                            <div class="stat-value text-sm text-info" id="api-response-time">--ms</div>
+                            <div class="stat-desc">Average response time</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <div class="stat">
+                            <div class="stat-figure text-warning">
+                                <i class="fas fa-exclamation-triangle text-3xl"></i>
+                            </div>
+                            <div class="stat-title">Alerts</div>
+                            <div class="stat-value text-sm text-warning" id="alert-count">0</div>
+                            <div class="stat-desc">Active alerts</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="card-title">Recent Activity</h3>
+                    <div class="overflow-y-auto max-h-96">
+                        <ul class="timeline timeline-vertical" id="activity-log">
+                            <li>
+                                <div class="timeline-start">09:00</div>
+                                <div class="timeline-middle">
+                                    <i class="fas fa-circle text-xs"></i>
+                                </div>
+                                <div class="timeline-end timeline-box">System started</div>
+                                <hr/>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <dialog id="order-detail-modal" class="modal">
+        <div class="modal-box w-11/12 max-w-2xl">
+            <h3 class="font-bold text-lg mb-4">Order Details</h3>
+            <div id="order-detail-content">
+                Loading...
+            </div>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn">Close</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <!-- Settings Modal -->
+    <dialog id="settings-modal" class="modal">
+        <div class="modal-box w-11/12 max-w-3xl">
+            <h3 class="font-bold text-lg mb-4">
+                <i class="fas fa-cog mr-2"></i>API Settings
+            </h3>
+            
+            <div class="alert alert-info mb-4">
+                <i class="fas fa-info-circle"></i>
+                <div>
+                    <p class="text-sm">Configure your AWS API Gateway endpoint and API key to connect to your serverless backend.</p>
+                    <p class="text-xs mt-1">Status: <span id="config-status" class="font-bold">Not Configured</span></p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <!-- API Endpoint -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">
+                            <i class="fas fa-link mr-2"></i>API Endpoint URL
+                        </span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="settings-api-endpoint" 
+                        placeholder="https://your-api-id.execute-api.region.amazonaws.com/prod"
+                        class="input input-bordered w-full"
+                    />
+                    <label class="label">
+                        <span class="label-text-alt text-error" id="api-endpoint-error"></span>
+                        <span class="label-text-alt">Example: https://abc123.execute-api.us-east-1.amazonaws.com/prod</span>
+                    </label>
+                </div>
+
+                <!-- API Key -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">
+                            <i class="fas fa-key mr-2"></i>API Key
+                        </span>
+                    </label>
+                    <div class="join w-full">
+                        <input 
+                            type="password" 
+                            id="settings-api-key" 
+                            placeholder="Enter your API key"
+                            class="input input-bordered join-item w-full"
+                        />
+                        <button 
+                            type="button" 
+                            class="btn join-item" 
+                            id="toggle-api-key-btn"
+                            onclick="toggleApiKeyVisibility()"
+                        >
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <label class="label">
+                        <span class="label-text-alt text-error" id="api-key-error"></span>
+                        <span class="label-text-alt">Get this from AWS API Gateway console</span>
+                    </label>
+                </div>
+
+                <!-- AWS Region -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">
+                            <i class="fas fa-globe mr-2"></i>AWS Region
+                        </span>
+                    </label>
+                    <select id="settings-aws-region" class="select select-bordered w-full">
+                        <option value="us-east-1">US East (N. Virginia) - us-east-1</option>
+                        <option value="us-east-2">US East (Ohio) - us-east-2</option>
+                        <option value="us-west-1">US West (N. California) - us-west-1</option>
+                        <option value="us-west-2">US West (Oregon) - us-west-2</option>
+                        <option value="ap-southeast-1">Asia Pacific (Singapore) - ap-southeast-1</option>
+                        <option value="ap-southeast-2">Asia Pacific (Sydney) - ap-southeast-2</option>
+                        <option value="eu-west-1">Europe (Ireland) - eu-west-1</option>
+                        <option value="eu-central-1">Europe (Frankfurt) - eu-central-1</option>
+                    </select>
+                </div>
+
+                <!-- Debug Mode -->
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text font-semibold">
+                            <i class="fas fa-bug mr-2"></i>Debug Mode
+                        </span>
+                        <input type="checkbox" id="settings-debug-mode" class="toggle toggle-primary" />
+                    </label>
+                    <label class="label">
+                        <span class="label-text-alt">Enable detailed logging in browser console</span>
+                    </label>
+                </div>
+
+                <!-- Test Connection -->
+                <div class="divider">Connection Test</div>
+                
+                <button 
+                    type="button" 
+                    class="btn btn-outline btn-info w-full"
+                    id="test-connection-btn"
+                    onclick="testApiConnection()"
+                >
+                    <i class="fas fa-plug mr-2"></i>Test API Connection
+                </button>
+
+                <div id="connection-test-result" class="hidden"></div>
+            </div>
+
+            <div class="modal-action">
+                <button type="button" class="btn btn-error btn-outline" onclick="clearAllSettings()">
+                    <i class="fas fa-trash mr-2"></i>Clear All
+                </button>
+                <button type="button" class="btn" onclick="closeSettings()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSettings()">
+                    <i class="fas fa-save mr-2"></i>Save Settings
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <script src="app.js"></script>
+</body>
+</html>

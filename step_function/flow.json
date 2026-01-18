@@ -1,0 +1,255 @@
+{
+  "Comment": "Serverless Order Processing Workflow - Orchestrates end-to-end order processing with error handling",
+  "StartAt": "ValidateOrder",
+  "States": {
+    "ValidateOrder": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:851937572709:function:order_management:$LATEST",
+        "Payload": {
+          "orderId.$": "$.orderId",
+          "customerId.$": "$.customerId",
+          "items.$": "$.items",
+          "totalAmount.$": "$.totalAmount"
+        }
+      },
+      "ResultPath": "$.validationResult",
+      "Next": "ProcessPayment",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "OrderFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "OutputPath": "$.validationResult.Payload"
+    },
+    "ProcessPayment": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:851937572709:function:process_payment:$LATEST",
+        "Payload": {
+          "orderId.$": "$.orderId",
+          "customerId.$": "$.customerId",
+          "totalAmount.$": "$.totalAmount"
+        }
+      },
+      "ResultPath": "$.paymentResult",
+      "Next": "PaymentChoice",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PaymentFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "OutputPath": "$.paymentResult.Payload"
+    },
+    "PaymentChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.paymentStatus",
+          "StringEquals": "SUCCESS",
+          "Next": "UpdateInventory"
+        },
+        {
+          "Variable": "$.paymentStatus",
+          "StringEquals": "FAILED",
+          "Next": "PaymentFailed"
+        },
+        {
+          "Variable": "$.paymentStatus",
+          "StringEquals": "ERROR",
+          "Next": "PaymentFailed"
+        }
+      ],
+      "Default": "PaymentFailed"
+    },
+    "UpdateInventory": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:851937572709:function:update_inventory:$LATEST",
+        "Payload": {
+          "orderId.$": "$.orderId",
+          "items.$": "$.items",
+          "paymentStatus.$": "$.paymentStatus",
+          "transactionId.$": "$.transactionId"
+        }
+      },
+      "ResultPath": "$.inventoryResult",
+      "Next": "CheckInventoryStatus",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "InventoryFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "OutputPath": "$.inventoryResult.Payload"
+    },
+    "CheckInventoryStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.inventoryStatus",
+          "StringEquals": "SUCCESS",
+          "Next": "SendConfirmation"
+        },
+        {
+          "Variable": "$.inventoryStatus",
+          "StringEquals": "FAILED",
+          "Next": "InventoryFailed"
+        },
+        {
+          "Variable": "$.inventoryStatus",
+          "StringEquals": "ERROR",
+          "Next": "InventoryFailed"
+        }
+      ],
+      "Default": "InventoryFailed"
+    },
+    "SendConfirmation": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:851937572709:function:send_notification:$LATEST",
+        "Payload": {
+          "eventType": "ORDER_COMPLETED",
+          "orderId.$": "$.orderId",
+          "customerId.$": "$.customerId",
+          "totalAmount.$": "$.totalAmount",
+          "transactionId.$": "$.transactionId",
+          "paymentStatus.$": "$.paymentStatus",
+          "inventoryStatus.$": "$.inventoryStatus",
+          "timestamp.$": "$.timestamp"
+        }
+      },
+      "ResultPath": "$.notificationResult",
+      "End": true,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "NotificationFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "PaymentFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:851937572709:function:send_notification:$LATEST",
+        "Payload": {
+          "eventType": "PAYMENT_FAILED",
+          "orderId.$": "$.orderId",
+          "customerId.$": "$.customerId",
+          "totalAmount.$": "$.totalAmount",
+          "paymentStatus.$": "$.paymentStatus",
+          "error.$": "$.error",
+          "timestamp.$": "$.timestamp"
+        }
+      },
+      "ResultPath": "$.failureNotification",
+      "Next": "OrderFailed"
+    },
+    "InventoryFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:851937572709:function:send_notification:$LATEST",
+        "Payload": {
+          "eventType": "INVENTORY_FAILURE",
+          "orderId.$": "$.orderId",
+          "customerId.$": "$.customerId",
+          "items.$": "$.items",
+          "inventoryStatus.$": "$.inventoryStatus",
+          "insufficientStock.$": "$.insufficientStock",
+          "error.$": "$.error",
+          "timestamp.$": "$.timestamp"
+        }
+      },
+      "ResultPath": "$.failureNotification",
+      "Next": "OrderFailed"
+    },
+    "NotificationFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:851937572709:function:send_notification:$LATEST",
+        "Payload": {
+          "eventType": "SYSTEM_ERROR",
+          "orderId.$": "$.orderId",
+          "error": "Notification delivery failed",
+          "timestamp.$": "$.timestamp"
+        }
+      },
+      "ResultPath": "$.systemError",
+      "Next": "OrderFailed"
+    },
+    "OrderFailed": {
+      "Type": "Fail",
+      "Cause": "Order processing workflow failed",
+      "Error": "ORDER_PROCESSING_FAILED"
+    }
+  }
+}
