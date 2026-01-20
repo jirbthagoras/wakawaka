@@ -29,11 +29,26 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id: ${{ vars.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ env.AWS_REGION }}
       
+      - name: Verify AWS credentials
+        run: |
+          echo "Verifying AWS credentials..."
+          
+          # Test basic AWS access
+          aws sts get-caller-identity
+          
+          # Check token expiration (jika tersedia)
+          if command -v jq &> /dev/null; then
+            aws sts get-caller-identity | jq -r '.Arn'
+          else
+            echo "Caller identity verified"
+          fi
+          
+          echo "✅ AWS credentials are valid"
       - name: Validate frontend files
         run: |
           echo "Validating frontend files..."
@@ -56,9 +71,14 @@ jobs:
         run: |
           echo "Checking if Amplify app exists..."
           
-          APP_EXISTS=$(aws amplify list-apps \
+          # Coba dengan timeout dan error handling
+          if ! APP_EXISTS=$(aws amplify list-apps \
             --query "apps[?name=='lks-amplify-order-app'].appId" \
-            --output text)
+            --output text 2>/dev/null); then
+            echo "❌ AWS credentials may be expired or invalid"
+            echo "Please refresh your AWS Academy Learner Lab credentials"
+            exit 1
+          fi
           
           if [ -z "$APP_EXISTS" ]; then
             echo "app_exists=false" >> $GITHUB_OUTPUT
