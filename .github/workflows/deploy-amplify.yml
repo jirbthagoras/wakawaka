@@ -72,7 +72,10 @@ jobs:
           fi
           echo "All frontend files validated successfully"
       
-
+      - name: Test AWS access
+        run: |
+          aws sts get-caller-identity
+          aws amplify list-apps --max-results 1
           
       - name: Check Amplify app exists
         id: check-app
