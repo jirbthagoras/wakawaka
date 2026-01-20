@@ -3,13 +3,13 @@ name: Deploy Frontend to Amplify
 on:
   push:
     branches:
-      - main
+      - master
     paths:
       - 'frontend/**'
       - '.github/workflows/**'
   pull_request:
     branches:
-      - main
+      - master
     paths:
       - 'frontend/**'
   workflow_dispatch:
