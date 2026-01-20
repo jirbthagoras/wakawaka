@@ -4,15 +4,11 @@ frontend:
     preBuild:
       commands:
         - echo "Pre-build phase started"
-        - echo "No environment variable replacement needed"
-        - echo "API configuration will be set via UI Settings"
     build:
       commands:
         - echo "Build phase started"
-        - echo "Frontend uses persistent storage for configuration"
-        - echo "Build completed successfully"
   artifacts:
-    baseDirectory: /
+    baseDirectory: frontend
     files:
       - '**/*'
   cache:
