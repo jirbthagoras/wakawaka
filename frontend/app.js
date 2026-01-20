@@ -1,3 +1,17 @@
+// Simple storage wrapper using localStorage
+window.storage = {
+  async get(key) {
+    return { value: localStorage.getItem(key) };
+  },
+  async set(key, value) {
+    localStorage.setItem(key, value);
+  },
+  async delete(key) {
+    localStorage.removeItem(key);
+  }
+};
+
+
 // Configuration - Will be loaded from storage
 let API_ENDPOINT = '';
 let API_KEY = '';
