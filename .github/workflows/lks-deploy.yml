@@ -1,0 +1,240 @@
+name: Deploy Frontend to Amplify
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-frontend:
+    name: Deploy Frontend to AWS Amplify
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ env.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      
+
+
+      - name: Verify AWS credentials
+        run: |
+          echo "Verifying AWS credentials..."
+          
+          # Test basic AWS access
+          aws sts get-caller-identity
+          
+          # Check token expiration (jika tersedia)
+          if command -v jq &> /dev/null; then
+            aws sts get-caller-identity | jq -r '.Arn'
+          else
+            echo "Caller identity verified"
+          fi
+          
+          echo "✅ AWS credentials are valid"
+      - name: Validate frontend files
+        run: |
+          echo "Validating frontend files..."
+          if [ ! -f "frontend/index.html" ]; then
+            echo "Error: index.html not found"
+            exit 1
+          fi
+          if [ ! -f "frontend/app.js" ]; then
+            echo "Error: app.js not found"
+            exit 1
+          fi
+          if [ ! -f "amplify.yml" ]; then
+            echo "Error: amplify.yml not found"
+            exit 1
+          fi
+          echo "All frontend files validated successfully"
+      
+      - name: Test AWS access
+        run: |
+          aws sts get-caller-identity
+          aws amplify list-apps --max-results 1
+          
+      - name: Check Amplify app exists
+        id: check-app
+        run: |
+          echo "Checking if Amplify app exists..."
+          
+          # Coba dengan timeout dan error handling
+          if ! APP_EXISTS=$(aws amplify list-apps \
+            --query "apps[?name=='lks-amplify-order-app'].appId" \
+            --output text 2>/dev/null); then
+            echo "❌ AWS credentials may be expired or invalid"
+            echo "Please refresh your AWS Academy Learner Lab credentials"
+            exit 1
+          fi
+          
+          if [ -z "$APP_EXISTS" ]; then
+            echo "app_exists=false" >> $GITHUB_OUTPUT
+            echo "Amplify app not found"
+          else
+            echo "app_exists=true" >> $GITHUB_OUTPUT
+            echo "app_id=$APP_EXISTS" >> $GITHUB_OUTPUT
+            echo "Amplify app found: $APP_EXISTS"
+          fi
+      
+      - name: Trigger Amplify deployment
+        if: steps.check-app.outputs.app_exists == 'true'
+        run: |
+          echo "Triggering AWS Amplify build and deployment..."
+          
+          JOB_ID=$(aws amplify start-job \
+            --app-id ${{ steps.check-app.outputs.app_id }} \
+            --branch-name main \
+            --job-type RELEASE \
+            --query 'jobSummary.jobId' \
+            --output text)
+          
+          echo "Amplify job started with ID: $JOB_ID"
+          echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
+          
+          # Wait for deployment to complete (optional)
+          echo "Waiting for deployment to complete..."
+          
+          MAX_WAIT=600  # 10 minutes
+          ELAPSED=0
+          
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            STATUS=$(aws amplify get-job \
+              --app-id ${{ steps.check-app.outputs.app_id }} \
+              --branch-name main \
+              --job-id $JOB_ID \
+              --query 'job.summary.status' \
+              --output text)
+            
+            echo "Current status: $STATUS (${ELAPSED}s elapsed)"
+            
+            if [ "$STATUS" = "SUCCEED" ]; then
+              echo "✅ Deployment completed successfully!"
+              exit 0
+            elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELLED" ]; then
+              echo "❌ Deployment failed with status: $STATUS"
+              exit 1
+            fi
+            
+            sleep 10
+            ELAPSED=$((ELAPSED + 10))
+          done
+          
+          echo "⚠️ Deployment timeout after ${MAX_WAIT}s"
+          echo "Check Amplify console for status"
+      
+      - name: Get Amplify app URL
+        if: steps.check-app.outputs.app_exists == 'true'
+        run: |
+          APP_URL=$(aws amplify get-app \
+            --app-id ${{ steps.check-app.outputs.app_id }} \
+            --query 'app.defaultDomain' \
+            --output text)
+          
+          echo "🌐 Application URL: https://main.$APP_URL"
+          echo "app_url=https://main.$APP_URL" >> $GITHUB_OUTPUT
+      
+      - name: Create deployment summary
+        if: always()
+        run: |
+          echo "## 🚀 Frontend Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Author:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check-app.outputs.app_exists }}" = "true" ]; then
+            echo "### ✅ Deployment Status" >> $GITHUB_STEP_SUMMARY
+            echo "- Amplify App ID: ${{ steps.check-app.outputs.app_id }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Region: ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **[View Application](https://main.$(aws amplify get-app --app-id ${{ steps.check-app.outputs.app_id }} --query 'app.defaultDomain' --output text))**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ Amplify App Not Found" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please create the Amplify app first using Terraform or AWS Console." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  notify:
+    name: Send Deployment Notification
+    runs-on: ubuntu-latest
+    needs: deploy-frontend
+    if: always() && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Determine deployment status
+        id: status
+        run: |
+          if [ "${{ needs.deploy-frontend.result }}" == "success" ]; then
+            echo "status=✅ SUCCESS" >> $GITHUB_OUTPUT
+            echo "message=Frontend deployed successfully to AWS Amplify!" >> $GITHUB_OUTPUT
+            echo "emoji=🚀" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ FAILED" >> $GITHUB_OUTPUT
+            echo "message=Frontend deployment failed. Please check the logs." >> $GITHUB_OUTPUT
+            echo "emoji=⚠️" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Send SNS notification
+        continue-on-error: true
+        run: |
+          # Check if SNS topic exists
+          TOPIC_EXISTS=$(aws sns list-topics \
+            --query "Topics[?contains(TopicArn, 'lks-sns-order-notifications')].TopicArn" \
+            --output text)
+          
+          if [ -n "$TOPIC_EXISTS" ]; then
+            aws sns publish \
+              --topic-arn $TOPIC_EXISTS \
+              --subject "${{ steps.status.outputs.emoji }} Frontend Deployment - ${{ steps.status.outputs.status }}" \
+              --message "
+          LKS Order Management System - Frontend Deployment
+          
+          Status: ${{ steps.status.outputs.status }}
+          Message: ${{ steps.status.outputs.message }}
+          
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref_name }}
+          Commit: ${{ github.sha }}
+          Author: ${{ github.actor }}
+          Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          "
+            echo "✅ SNS notification sent"
+          else
+            echo "⚠️ SNS topic not found, skipping notification"
+          fi
