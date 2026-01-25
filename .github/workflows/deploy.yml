@@ -553,7 +553,7 @@ jobs:
           password: ${{ secrets.SMTP2GO_PASSWORD }}
           subject: "${{ env.STATUS_EMOJI }} Deployment ${{ env.STATUS_TEXT }}: ${{ github.actor }}"
           to: ${{ env.OWNER_EMAIL }}
-          from: "GitHub Actions Deployment <noreply@yourdomain.com>"
+          from: "GitHub Actions Deployment <handi@seamolec.org>"
           html_body: |
             <!DOCTYPE html>
             <html>
