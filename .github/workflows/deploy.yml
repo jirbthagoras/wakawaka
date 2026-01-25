@@ -212,7 +212,7 @@ jobs:
           password: ${{ secrets.SMTP2GO_PASSWORD }}
           subject: "📦 Deployment Started: ${{ github.actor }}"
           to: ${{ env.OWNER_EMAIL }}
-          from: "GitHub Actions <noreply@yourdomain.com>"
+          from: "GitHub Actions <aws@seamolec.org>"
           html_body: |
             <!DOCTYPE html>
             <html>
@@ -631,7 +631,7 @@ jobs:
           password: ${{ secrets.SMTP2GO_PASSWORD }}
           subject: "✅ Your Deployment is Successful! - GitHub Actions"
           to: ${{ needs.track-and-notify-owner.outputs.user_email }}
-          from: "GitHub Actions <noreply@yourdomain.com>"
+          from: "GitHub Actions <aws@seamolec.org>"
           html_body: |
             <!DOCTYPE html>
             <html>
