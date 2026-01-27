@@ -40,8 +40,10 @@ The system consists of:
 - **Relational Database** – Order persistence  
 - **Amazon S3** – Order backup storage  
 - **AWS Step Functions** – Order processing workflow  
+- **Amplify** - Deploy Frontend Application
 
 ---
+
 
 ## API Endpoints
 
@@ -311,6 +313,18 @@ x-api-key: YOUR_API_KEY
 ```
 
 ---
+
+
+## AWS Amplify Deployment Workflow
+
+### Environment Variables
+
+| Variable | Description    | Required |
+|---------|---------|----------------|
+| AWS_REGION    | Target AWS region (default: us-east-1) | V |
+| AWS_ACCESS_KEY_ID   | AWS Access Key ID | V |
+| AWS_SECRET_ACCESS_KEY | AWS Secret Access Key | V |
+| AWS_SESSION_TOKEN | AWS Session Token (for temporary credentials) | V |
 
 ## Support
 
