@@ -1,31 +1,14 @@
 # AWS Amplify Deployment Workflow
 
-A GitHub Actions workflow for automated frontend deployment to AWS Amplify.
-
----
-
-
-## Overview
-
-This workflow is responsible for:
-
-- Detecting changes in the frontend/ folder
-- Obtaining AWS credentials from GitHub Secrets
-- Validating frontend files before deployment
-- Triggering build and deployment on AWS Amplify
-- Monitoring deployment status in real-time
-- Sending notifications via AWS SNS
-
----
-
 
 ## Trigger Conditions
 
 The workflow runs automatically when:
 
 - **The workflow runs automatically when:**
-- ***Changes in frontend/ folder***
-- ***Changes in .github/workflows/ folder***<br/> 
+- ***Changes in .github/workflows/deploy.yml_***<br/> 
+- ***Changes the path in the source code deploy.yml_ to folder frontend***<br/> 
+- ***You must read the source code ***<br/>
 - **Pull Request to master branch:**<br/>
 - ***Only for changes in frontend/ folder***<br/>
 - **Manual Trigger:**
